@@ -21,6 +21,27 @@ def exponential_moving_average(data, alpha=0.3):
         ema[i] = alpha * data[i] + (1 - alpha) * ema[i-1]
     return ema
 
+def linear_trend_of_moving_averaged_data(xdata,ydata, window):
+    """ Calcula a tendência lineal de dados filtrados com running average """
+    if window >= 1:
+       print()
+       #msked_x = ma.masked_where(ma.getmask(msked_y), xdata[window-1:])
+       #local_window=window-1
+    #elif window == 0:
+       #msked_x = ma.masked_where(ma.getmask(msked_y), xdata[window:])
+    #   local_window=0
+    elif window <= 0:
+       print('Error: window for average must be at least one')
+       return
+
+    filt_data = simple_moving_average(ydata, window)
+    msked_y = ma.masked_invalid(filt_data)
+    msked_x = ma.masked_where(ma.getmask(msked_y), xdata[window-1:])
+    #msked_x = ma.masked_where(ma.getmask(msked_y), xdata[local_window:])
+    slope, intercept = ma.polyfit(msked_x, msked_y, 1)
+    ltrend = slope * xdata + intercept
+    return ltrend
+
 #open data file
 fname='SBBU.txt'
 
@@ -69,25 +90,28 @@ sma_7 = simple_moving_average(ur, wl7)
 sma_10 = simple_moving_average(ur, wl10)
 sma_30 = simple_moving_average(ur, wl30)
 
-#compute a polynomial fit
+#compute a linear trend for the full data
 msked_y = ma.masked_invalid(ur)
 msked_x = ma.masked_where(ma.getmask(msked_y), timestamp)
 slope, intercept = ma.polyfit(msked_x, msked_y, 1)
 
-trend_30 = slope * timestamp + intercept
+trend = slope * timestamp + intercept
+
+window=180
+ftrend=linear_trend_of_moving_averaged_data(timestamp, ur, window)
 
 plt.figure(figsize=(10, 5))
-plt.plot(ur, 'o-', label='Umidade Relativa')
-#plt.plot(np.arange(wl3-1, len(ur)), sma_3, '-', label='SMA(3)')
-plt.plot(np.arange(wl7-1, len(ur)), sma_7, 's-', label='SMA(7)')
-#plt.plot(np.arange(wl10-1, len(ur)), sma_10, '-', label='SMA(10)')
-plt.plot(np.arange(wl30-1, len(ur)), sma_30, 's-', label='SMA(30)')
+plt.plot(timestamp, ur, 'o-', label='Umidade Relativa')
+#plt.plot(np.arange(wl7-1, len(ur)), sma_7, 's-', label='SMA(7)')
+#plt.plot(np.arange(wl30-1, len(ur)), sma_30, 's-', label='SMA(30)')
 
 #plt.plot(np.arange(2, len(precos)), sma_30, 's-', label='SMA(30)')
 #plt.plot(np.arange(2, len(precos)), wma_3, 'd-', label='WMA(3)')
 #plt.plot(ema, '^-', label='EMA (α=0.2)')
 
-plt.plot(timestamp, trend_30, 's-', label='trend(30)')
+plt.plot(timestamp, trend, 's-', label='trend(30)')
+
+plt.plot(timestamp[window-1:], ftrend[window-1:], 's-', label='LREG('+str(window)+')')
 
 plt.legend()
 plt.title('Comparação de Médias Móveis')
