@@ -20,11 +20,32 @@ def exponential_moving_average(data, alpha=0.3):
         ema[i] = alpha * data[i] + (1 - alpha) * ema[i-1]
     return ema
 
+def linear_trend_of_moving_averaged_data(xdata,ydata, window):
+    """ Calcula a tendência lineal de dados filtrados com running average """
+    filt_data = simple_moving_average(ydata, window)
+    msked_y = ma.masked_invalid(filt_data)
+    msked_x = ma.masked_where(ma.getmask(msked_y), xdata[window-1:])
+    slope, intercept = ma.polyfit(msked_x, msked_y, 1)
+    ltrend = slope * xdata + intercept
+    return ltrend
+
+#filt_length=7
+#filt_data = simple_moving_average(precos, filt_length)
+#msked_y = ma.masked_invalid(filt_data)
+#msked_x = ma.masked_where(ma.getmask(msked_y), timestamp[filt_length-1:])
+#slope_filt, intercept_filt = ma.polyfit(msked_x, msked_y, 1)
+
 # Dados de exemplo (preços de ações)
 precos = np.array([152, 153, 155, 154, 156, 158, 159, 157, 155, 153, 
                    154, 156, 158, 160, 162, 161, 163, 165, 164, 166,
                    165, 160, 155, 157, 157, 153, 155, 158, 159, 160,
                    157, 158, 159, 160, 163, 158, 154, 160, 163, 161])
+
+timestamp=np.zeros_like(precos)
+for i in range(1, len(precos)):
+   timestamp[i] = i
+
+#timestamp=np.arange(len(precos))
 
 # Calculando médias móveis com diferentes janelas
 wl3=3
@@ -38,27 +59,41 @@ sma_30 = simple_moving_average(precos, wl30)
 #wma_3 = weighted_moving_average(precos, 3)
 #ema = exponential_moving_average(precos, 0.2)
 
-#compute a polynomial fit
+#compute a polynomial fit of full data
 msked_y = ma.masked_invalid(precos)
 msked_x = ma.masked_where(ma.getmask(msked_y), timestamp)
 slope, intercept = ma.polyfit(msked_x, msked_y, 1)
 
-trend_30 = slope * timestamp + intercept
+trend = slope * timestamp + intercept
 
-plt.figure(figsize=(10, 5))
-plt.plot(ur, 'o-', label='Umidade Relativa')
-#plt.plot(np.arange(wl3-1, len(ur)), sma_3, '-', label='SMA(3)')
-plt.plot(np.arange(wl7-1, len(ur)), sma_7, 's-', label='SMA(7)')
-#plt.plot(np.arange(wl10-1, len(ur)), sma_10, '-', label='SMA(10)')
-plt.plot(np.arange(wl30-1, len(ur)), sma_30, 's-', label='SMA(30)')
+#compute a polynomial fit of fluctuations filtered data
+#  It was tested to eventually becomes a python object (function)
+#    - with filt_length it was removed data as a result of running mean procedure
+#    - running mean filters fluctuations
+#    - although the trend is able to include data from the begining, with "[filt_length-1:]" was removed from plot for clarity
+filt_length=7
+filt_data = simple_moving_average(precos, filt_length)
+msked_y = ma.masked_invalid(filt_data)
+msked_x = ma.masked_where(ma.getmask(msked_y), timestamp[filt_length-1:])
+slope_filt, intercept_filt = ma.polyfit(msked_x, msked_y, 1)
 
-#plt.plot(np.arange(2, len(precos)), sma_30, 's-', label='SMA(30)')
-#plt.plot(np.arange(2, len(precos)), wma_3, 'd-', label='WMA(3)')
-#plt.plot(ema, '^-', label='EMA (α=0.2)')
+trend_30 = slope_filt * timestamp + intercept_filt
 
-plt.plot(timestamp, trend_30, 's-', label='trend(30)')
+window=5
+ftrend=linear_trend_of_moving_averaged_data(timestamp, precos, window)
 
-
+#plt.figure(figsize=(10, 5))
+#plt.plot(precos, 'o-', label='Umidade Relativa')
+##plt.plot(np.arange(wl3-1, len(ur)), sma_3, '-', label='SMA(3)')
+#plt.plot(np.arange(wl7-1, len(precos)), sma_7, 's-', label='SMA(7)')
+##plt.plot(np.arange(wl10-1, len(ur)), sma_10, '-', label='SMA(10)')
+#plt.plot(np.arange(wl30-1, len(precos)), sma_30, 's-', label='SMA(30)')
+#
+##plt.plot(np.arange(2, len(precos)), sma_30, 's-', label='SMA(30)')
+##plt.plot(np.arange(2, len(precos)), wma_3, 'd-', label='WMA(3)')
+##plt.plot(ema, '^-', label='EMA (α=0.2)')
+#
+#plt.plot(timestamp, trend_30, 's-', label='trend(30)')
 
 print("SMA(3):", sma_3)
 print("SMA(7):", sma_7)
@@ -73,9 +108,17 @@ plt.plot(np.arange(wl3-1, len(precos)), sma_3, 's-', label='SMA(3)')
 plt.plot(np.arange(wl7-1, len(precos)), sma_7, 's-', label='SMA(7)')
 plt.plot(np.arange(wl10-1, len(precos)), sma_10, 's-', label='SMA(10)')
 plt.plot(np.arange(wl30-1, len(precos)), sma_30, 's-', label='SMA(30)')
-#plt.plot(np.arange(2, len(precos)), sma_30, 's-', label='SMA(30)')
-#plt.plot(np.arange(2, len(precos)), wma_3, 'd-', label='WMA(3)')
-#plt.plot(ema, '^-', label='EMA (α=0.2)')
+plt.plot(trend, 's-', label='LREG(0)')
+
+# Plot the trend 
+#    - with filt_length it was removed data as a result of running mean procedure
+#    - running mean filters fluctuations
+#    - although the trend is able to include data from the begining, with "[filt_length-1:]" was removed from plot for clarity
+plt.plot(timestamp[filt_length-1:], trend_30[filt_length-1:], 's-', label='LREG('+str(filt_length)+')')
+
+plt.plot(timestamp[window-1:], ftrend[window-1:], 's-', label='LREG('+str(window)+')')
+
+
 plt.legend()
 plt.title('Comparação de Médias Móveis')
 plt.xlabel('Dias')
